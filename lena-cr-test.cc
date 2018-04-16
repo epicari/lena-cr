@@ -32,58 +32,40 @@
 
 using namespace ns3;
 
-/**
- * This simulation script creates two eNodeBs and drops randomly several UEs in
- * a disc around them (same number on both). The number of UEs , the radius of
- * that disc and the distance between the eNodeBs can be configured.
- */
 int main (int argc, char *argv[])
 {
-  double enbDist = 100.0;
+
   double radius = 50.0;
-  uint32_t numUes = 1;
-  double simTime = 1.0;
+  uint8_t bandwidth = 25;
+  double simTime = 3.0;
+
+  lteHelper->SetEnbDeviceAttribute ("DlBandwidth", UintegerValue (bandwidth));
+  lteHelper->SetEnbDeviceAttribute ("UlBandwidth", UintegerValue (bandwidth));
 
   CommandLine cmd;
-  cmd.AddValue ("enbDist", "distance between the two eNBs", enbDist);
   cmd.AddValue ("radius", "the radius of the disc where UEs are placed around an eNB", radius);
-  cmd.AddValue ("numUes", "how many UEs are attached to each eNB", numUes);
   cmd.AddValue ("simTime", "Total duration of the simulation (in seconds)", simTime);
   cmd.Parse (argc, argv);
-
-  ConfigStore inputConfig;
-  inputConfig.ConfigureDefaults ();
 
   // parse again so you can override default values from the command line
   cmd.Parse (argc, argv);
 
-  // determine the string tag that identifies this simulation run
-  // this tag is then appended to all filenames
-
   IntegerValue runValue;
   GlobalValue::GetValueByName ("RngRun", runValue);
 
-  std::ostringstream tag;
-  tag  << "_enbDist" << std::setw (3) << std::setfill ('0') << std::fixed << std::setprecision (0) << enbDist
-       << "_radius"  << std::setw (3) << std::setfill ('0') << std::fixed << std::setprecision (0) << radius
-       << "_numUes"  << std::setw (3) << std::setfill ('0')  << numUes
-       << "_rngRun"  << std::setw (3) << std::setfill ('0')  << runValue.Get () ;
-
   Ptr<LteHelper> lteHelper = CreateObject<LteHelper> ();
   
-  lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::FriisSpectrumPropagationLossModel"));
-
   // Create Nodes: eNodeB and UE
   NodeContainer enbNodes;
   NodeContainer ueNodes1, ueNodes2;
   enbNodes.Create (2);
-  ueNodes1.Create (numUes);
-  ueNodes2.Create (numUes);
+  ueNodes1.Create (1);
+  ueNodes2.Create (1);
 
   // Position of eNBs
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector (0.0, 0.0, 0.0));
-  positionAlloc->Add (Vector (enbDist, 0.0, 0.0));
+  positionAlloc->Add (Vector (0.866, 0.1, 0.0));
+  positionAlloc->Add (Vector (0.5, 0.4, 0.0));
   MobilityHelper enbMobility;
   enbMobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   enbMobility.SetPositionAllocator (positionAlloc);
@@ -101,13 +83,11 @@ int main (int argc, char *argv[])
   // Position of UEs attached to eNB 2
   MobilityHelper ue2mobility;
   ue2mobility.SetPositionAllocator ("ns3::UniformDiscPositionAllocator",
-                                    "X", DoubleValue (enbDist),
-                                    "Y", DoubleValue (0.0),
+                                    "X", DoubleValue (0.3),
+                                    "Y", DoubleValue (0.3),
                                     "rho", DoubleValue (radius));
   ue2mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   ue2mobility.Install (ueNodes2);
-
-
 
   // Create Devices and install them in the Nodes (eNB and UE)
   NetDeviceContainer enbDevs;
@@ -128,12 +108,6 @@ int main (int argc, char *argv[])
   lteHelper->ActivateDataRadioBearer (ueDevs2, bearer);
 
   Simulator::Stop (Seconds (simTime));
-
-  // Insert RLC Performance Calculator
-  std::string dlOutFname = "DlRlcStats";
-  dlOutFname.append (tag.str ());
-  std::string ulOutFname = "UlRlcStats";
-  ulOutFname.append (tag.str ());
 
   lteHelper->EnableMacTraces ();
   lteHelper->EnableRlcTraces ();
